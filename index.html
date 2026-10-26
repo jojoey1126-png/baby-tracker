@@ -147,6 +147,22 @@
     function msg(t) { document.getElementById('msg').textContent = t; }
 
     async function init() {
+      // 恢復上次用嘅 email
+      const saved = localStorage.getItem('savedEmail');
+      if (saved) document.getElementById('email').value = saved;
+
+      // 監聽登入狀態變化
+      sb.auth.onAuthStateChange((event, session) => {
+        if (session) {
+          user = session.user;
+          showApp();
+        } else {
+          document.getElementById('loginScreen').classList.remove('hidden');
+          document.getElementById('app').classList.add('hidden');
+        }
+      });
+
+      // 檢查現有 session
       const { data: { session } } = await sb.auth.getSession();
       if (session) {
         user = session.user;
@@ -159,8 +175,18 @@
       const pw = document.getElementById('password').value;
       if (!email || pw.length < 6) return msg('請輸入有效 Email 同至少6位密碼');
       const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-      if (error) msg(error.message);
-      else location.reload();
+      if (error) {
+        msg(error.message);
+        return;
+      }
+      // 記住 email
+      localStorage.setItem('savedEmail', email);
+      // 唔使 reload，直接顯示 app
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        user = session.user;
+        showApp();
+      }
     }
 
     async function doSignup() {
