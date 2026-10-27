@@ -284,7 +284,10 @@
           <input id="amount" placeholder="份量 (ml / 匙)" class="w-full border rounded-xl px-3 py-3">
         `;
         document.getElementById('foods').innerHTML = foods.map(f=>`<button class="fb px-3 py-1 border rounded-full text-sm">${f}</button>`).join('');
-        document.querySelectorAll('.fb').forEach(b=>b.onclick=()=>{document.querySelectorAll('.fb').forEach(x=>x.classList.remove('bg-black','text-white'));b.classList.add('bg-black','text-white');window.food=b.textContent});
+        document.querySelectorAll('.fb').forEach(b=>b.onclick=()=>{
+          b.classList.toggle('bg-black');
+          b.classList.toggle('text-white');
+        });
       } else if (type === 'diaper') {
         body.innerHTML = time + `
           <div class="grid grid-cols-3 gap-2">
@@ -336,10 +339,14 @@
         event.type = 'bottle';
         event.detail = `${ml}ml · ${window.bt==='formula'?'配方奶':'人奶'}`;
       } else if (currentForm === 'solid') {
-        const food = window.food || document.getElementById('foodCustom').value;
-        if (!food) return alert('請選食物');
+        const selected = Array.from(document.querySelectorAll('.fb.bg-black')).map(b => b.textContent);
+        const custom = document.getElementById('foodCustom').value.trim();
+        const foodsList = [...selected];
+        if (custom) foodsList.push(custom);
+        if (!foodsList.length) return alert('請選食物');
+        const amount = document.getElementById('amount').value;
         event.type = 'solid';
-        event.detail = food + (document.getElementById('amount').value ? ' · ' + document.getElementById('amount').value : '');
+        event.detail = foodsList.join('、') + (amount ? ' · ' + amount : '');
       } else if (currentForm === 'diaper') {
         const dt = window.dt || 'poop';
         event.type = dt==='pee'?'diaper_pee':dt==='both'?'diaper_both':'diaper_poop';
