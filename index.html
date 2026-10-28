@@ -152,7 +152,18 @@
         <button id="saveGrowth" class="w-full bg-black text-white py-3 rounded-2xl">儲存</button>
       </div>
       <div id="growthList" class="mt-4 space-y-2 text-sm"></div>
-      <div id="growthChart" class="mt-4 text-xs text-gray-600"></div>
+      <div class="mt-4 space-y-4">
+        <div>
+          <p class="text-sm font-medium mb-2">香港女嬰身長圖表（0-2歲）</p>
+          <img src="girl_length_0_2.png" alt="女嬰身長 0-2歲" class="w-full border rounded-xl" onerror="this.style.display='none'">
+          <p class="text-xs text-gray-400 mt-1">請將官方圖表上載為 girl_length_0_2.png</p>
+        </div>
+        <div>
+          <p class="text-sm font-medium mb-2">香港女嬰體重圖表（0-2歲）</p>
+          <img src="girl_weight_0_2.png" alt="女嬰體重 0-2歲" class="w-full border rounded-xl" onerror="this.style.display='none'">
+          <p class="text-xs text-gray-400 mt-1">請將官方圖表上載為 girl_weight_0_2.png</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -648,19 +659,12 @@
     };
 
     // Growth, Stats, Reminders
-    const HK_GIRL_WEIGHT = {0:3.2,1:4.2,2:5.1,3:5.8,4:6.4,5:6.9,6:7.3,7:7.6,8:7.9,9:8.2,10:8.5,11:8.7,12:8.9};
-    const HK_GIRL_HEIGHT = {0:49.1,1:53.7,2:57.1,3:59.8,4:62.1,5:64.0,6:65.7,7:67.3,8:68.7,9:70.1,10:71.5,11:72.8,12:74.0};
-
     async function showGrowth() {
       document.getElementById('growthModal').classList.remove('hidden');
       document.getElementById('growthDate').value = new Date().toISOString().slice(0,10);
       const { data } = await sb.from('events').select('*').eq('type','growth').order('time',{ascending:false});
       const list = document.getElementById('growthList');
       list.innerHTML = (data||[]).map(e => `<div class="flex justify-between border-b py-2 text-sm"><span>${new Date(e.time).toLocaleDateString('zh-HK')}</span><span>${e.detail}</span></div>`).join('') || '<p class="text-gray-400 text-sm">未有記錄</p>';
-      if (data && data[0]) {
-        const ageM = Math.round((Date.now() - new Date(data[0].time)) / (1000*60*60*24*30));
-        document.getElementById('growthChart').innerHTML = `香港女嬰約50百分位參考：體重 ${HK_GIRL_WEIGHT[Math.min(ageM,12)]||'--'}kg · 身高 ${HK_GIRL_HEIGHT[Math.min(ageM,12)]||'--'}cm（僅供參考）`;
-      }
     }
     async function saveGrowthRec() {
       const date = document.getElementById('growthDate').value;
@@ -728,6 +732,8 @@
     document.getElementById('remindBtn').onclick = () => { document.getElementById('remindModal').classList.remove('hidden'); loadReminds(); };
     document.getElementById('closeRemind').onclick = () => document.getElementById('remindModal').classList.add('hidden');
     document.getElementById('addRemind').onclick = addRemindFn;
+
+    document.querySelectorAll('.form-btn').forEach(b => b.onclick = () => openModal(b.dataset.form));
 
     init();
   </script>
