@@ -373,6 +373,7 @@
           ${time}
           <select id="side" class="w-full border rounded-xl px-3 py-3"><option value="left">左邊</option><option value="right">右邊</option></select>
           <input id="mins" type="number" placeholder="分鐘" class="w-full border rounded-xl px-3 py-3">
+          <input id="note" placeholder="備註（可選）" class="w-full border rounded-xl px-3 py-3">
         `;
         document.getElementById('left').onclick = () => startTimer('left');
         document.getElementById('right').onclick = () => startTimer('right');
@@ -384,6 +385,7 @@
           </div>
           <div class="grid grid-cols-4 gap-2" id="mls"></div>
           <input id="ml" type="number" placeholder="自訂 ml" class="w-full border rounded-xl px-3 py-3">
+          <input id="note" placeholder="備註（可選）" class="w-full border rounded-xl px-3 py-3">
         `;
         const mls = [100,110,120,130,140,150,160,170,180];
         document.getElementById('mls').innerHTML = mls.map(m=>`<button class="mlb py-2 border rounded-xl text-sm">${m}</button>`).join('');
@@ -395,6 +397,7 @@
           <div class="flex flex-wrap gap-2" id="foods"></div>
           <input id="foodCustom" placeholder="其他" class="w-full border rounded-xl px-3 py-3">
           <input id="amount" placeholder="份量 (ml / 匙)" class="w-full border rounded-xl px-3 py-3">
+          <input id="note" placeholder="備註（可選）" class="w-full border rounded-xl px-3 py-3">
         `;
         document.getElementById('foods').innerHTML = foods.map(f=>`<button class="fb px-3 py-1 border rounded-full text-sm">${f}</button>`).join('');
         document.querySelectorAll('.fb').forEach(b=>b.onclick=()=>{
@@ -410,8 +413,9 @@
           </div>
           <div id="peeBox">
             <label class="block text-sm mb-2 mt-3">小便量</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button data-pl="1X" class="pl py-3 border rounded-xl">正常</button>
+            <div class="grid grid-cols-4 gap-2">
+              <button data-pl="0.5X" class="pl py-3 border rounded-xl">少</button>
+              <button data-pl="1X" class="pl py-3 border rounded-xl bg-black text-white">正常</button>
               <button data-pl="2X" class="pl py-3 border rounded-xl">多</button>
               <button data-pl="3X" class="pl py-3 border rounded-xl">爆片</button>
             </div>
@@ -420,6 +424,10 @@
             <label class="block text-sm">大便</label>
             <div class="flex flex-wrap gap-2" id="colors"></div>
             <div class="flex flex-wrap gap-2" id="texts"></div>
+          </div>
+          <div>
+            <label class="text-sm">備註</label>
+            <input id="note" placeholder="可選填" class="w-full border rounded-xl px-3 py-3 mt-1">
           </div>
         `;
         document.querySelectorAll('.dt').forEach(b=>b.onclick=()=>{
@@ -447,12 +455,14 @@
 
       if (currentForm === 'breast') {
         event.type = 'breastfeed';
-        event.detail = `${document.getElementById('side').value==='left'?'左':'右'} · ${document.getElementById('mins').value||'?'}分鐘`;
+        const note = document.getElementById('note')?.value.trim();
+        event.detail = `${document.getElementById('side').value==='left'?'左':'右'} · ${document.getElementById('mins').value||'?'}分鐘` + (note ? ' · ' + note : '');
       } else if (currentForm === 'bottle') {
         const ml = document.getElementById('ml').value;
         if (!ml) return alert('請輸入份量');
+        const note = document.getElementById('note')?.value.trim();
         event.type = 'bottle';
-        event.detail = `${ml}ml · ${window.bt==='formula'?'配方奶':'人奶'}`;
+        event.detail = `${ml}ml · ${window.bt==='formula'?'配方奶':'人奶'}` + (note ? ' · ' + note : '');
       } else if (currentForm === 'solid') {
         const selected = Array.from(document.querySelectorAll('.fb.bg-black')).map(b => b.textContent);
         const custom = document.getElementById('foodCustom').value.trim();
@@ -460,18 +470,20 @@
         if (custom) foodsList.push(custom);
         if (!foodsList.length) return alert('請選食物');
         const amount = document.getElementById('amount').value;
+        const note = document.getElementById('note')?.value.trim();
         event.type = 'solid';
-        event.detail = foodsList.join('、') + (amount ? ' · ' + amount : '');
+        event.detail = foodsList.join('、') + (amount ? ' · ' + amount : '') + (note ? ' · ' + note : '');
       } else if (currentForm === 'diaper') {
         const dt = window.dt || 'poop';
         event.type = dt==='pee'?'diaper_pee':dt==='both'?'diaper_both':'diaper_poop';
         const pl = window.pl || '1X';
-        const peeLabel = pl==='1X' ? '' : (pl==='2X' ? '多 (2X)' : '爆片 (3X)');
+        const peeLabel = pl==='0.5X' ? '少' : pl==='1X' ? '' : (pl==='2X' ? '多 (2X)' : '爆片 (3X)');
+        const note = document.getElementById('note')?.value.trim();
         if (dt === 'pee') {
-          event.detail = peeLabel;
+          event.detail = [peeLabel, note].filter(Boolean).join(' · ');
         } else {
           const poopDetail = [window.color, window.texture].filter(Boolean).join(' · ');
-          event.detail = [poopDetail, peeLabel].filter(Boolean).join(' · ');
+          event.detail = [poopDetail, peeLabel, note].filter(Boolean).join(' · ');
         }
       }
 
