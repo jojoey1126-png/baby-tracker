@@ -75,12 +75,21 @@
       </div>
 
       <div class="mt-6">
-        <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-semibold text-gray-500">今日記錄</h2>
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-sm font-semibold text-gray-500" id="listTitle">今日記錄</h2>
           <button id="clearBtn" class="text-xs text-gray-400">清除今日</button>
         </div>
+        <!-- Date selector -->
+        <div class="flex gap-1 overflow-x-auto pb-2 mb-2" id="daySelector"></div>
+        <!-- Category filter -->
+        <div class="flex gap-1 mb-3 text-xs">
+          <button data-filter="all" class="filter-btn px-3 py-1.5 rounded-full bg-black text-white">全部</button>
+          <button data-filter="feed" class="filter-btn px-3 py-1.5 rounded-full border">食奶</button>
+          <button data-filter="solid" class="filter-btn px-3 py-1.5 rounded-full border">副食</button>
+          <button data-filter="diaper" class="filter-btn px-3 py-1.5 rounded-full border">大小便</button>
+        </div>
         <div id="list" class="space-y-2"></div>
-        <div id="empty" class="text-center py-10 text-gray-400 text-sm">今日未有記錄</div>
+        <div id="empty" class="text-center py-10 text-gray-400 text-sm">未有記錄</div>
       </div>
     </main>
   </div>
@@ -122,7 +131,42 @@
     const SUPABASE_KEY = 'sb_publishable_kdOnsZo8ShQmzkg8Xno2sg_YwT9BJlV';
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let currentForm = null;
+    let selectedDate = new Date();
+    let currentFilter = 'all';
+
+    function renderDaySelector() {
+      const container = document.getElementById('daySelector');
+      container.innerHTML = '';
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const isSelected = d.toDateString() === selectedDate.toDateString();
+        const label = i === 0 ? '今日' : d.toLocaleDateString('zh-HK', {month:'numeric', day:'numeric'});
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1.5 rounded-full text-xs whitespace-nowrap ${isSelected ? 'bg-black text-white' : 'border'}`;
+        btn.textContent = label;
+        btn.onclick = () => {
+          selectedDate = d;
+          document.getElementById('listTitle').textContent = i === 0 ? '今日記錄' : d.toLocaleDateString('zh-HK', {month:'long', day:'numeric'}) + ' 記錄';
+          document.getElementById('clearBtn').textContent = i === 0 ? '清除今日' : '清除當日';
+          renderDaySelector();
+          loadSelectedDay();
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    async function loadSelectedDay() {
+      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).toISOString();
+      const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()+1).toISOString();
+      const { data, error } = await sb.from('events').select('*').gte('time', start).lt('time', end).order('time', {ascending:false});
+      if (error) { console.error(error); return; }
+      let items = data || [];
+      if (currentFilter === 'feed') items = items.filter(e => e.type === 'breastfeed' || e.type === 'bottle');
+      else if (currentFilter === 'solid') items = items.filter(e => e.type === 'solid');
+      else if (currentFilter === 'diaper') items = items.filter(e => e.type.startsWith('diaper'));
+      renderList(items);
+    }
     let timer = null;
     let timerInt = null;
     let user = null;
@@ -193,8 +237,9 @@
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('date').textContent = new Date().toLocaleDateString('zh-HK', {month:'long', day:'numeric', weekday:'short'});
-      loadToday();
-      sb.channel('realtime').on('postgres_changes', {event:'*', schema:'public', table:'events'}, loadToday).subscribe();
+      renderDaySelector();
+      loadSelectedDay();
+      sb.channel('realtime').on('postgres_changes', {event:'*', schema:'public', table:'events'}, loadSelectedDay).subscribe();
     }
 
     async function loadToday() {
@@ -373,7 +418,7 @@
       }
       if (error) return alert(error.message);
       document.getElementById('modal').classList.add('hidden');
-      loadToday();
+      loadSelectedDay();
     }
 
     function startTimer(side) {
@@ -402,13 +447,13 @@
       await sb.from('events').insert(event);
       document.getElementById('timerBox').classList.add('hidden');
       timer = null;
-      loadToday();
+      loadSelectedDay();
     }
 
     async function del(id) {
       if (!confirm('刪除？')) return;
       await sb.from('events').delete().eq('id', id);
-      loadToday();
+      loadSelectedDay();
     }
 
     async function clearToday() {
@@ -417,7 +462,7 @@
       const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
       const end = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1).toISOString();
       await sb.from('events').delete().gte('time', start).lt('time', end);
-      loadToday();
+      loadSelectedDay();
     }
 
     function setTab(tab) {
@@ -528,7 +573,22 @@
     document.getElementById('tabToday').onclick = () => setTab('today');
     document.getElementById('tabWeek').onclick = () => setTab('week');
     document.getElementById('tabMonth').onclick = () => setTab('month');
-    document.querySelectorAll('.form-btn').forEach(b => b.onclick = () => openModal(b.dataset.form));
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.onclick = () => {
+        currentFilter = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b => b.className = 'filter-btn px-3 py-1.5 rounded-full border');
+        btn.className = 'filter-btn px-3 py-1.5 rounded-full bg-black text-white';
+        loadSelectedDay();
+      };
+    });
+
+    document.getElementById('clearBtn').onclick = async () => {
+      if (!confirm('清除當日所有記錄？')) return;
+      const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).toISOString();
+      const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()+1).toISOString();
+      await sb.from('events').delete().gte('time', start).lt('time', end);
+      loadSelectedDay();
+    };
 
     init();
   </script>
