@@ -295,14 +295,16 @@
             <button data-dt="poop" class="dt py-3 border rounded-xl bg-black text-white">大便</button>
             <button data-dt="both" class="dt py-3 border rounded-xl">兩者</button>
           </div>
-          <div id="peeBox" class="hidden">
-            <div class="grid grid-cols-3 gap-2 mt-3">
+          <div id="peeBox">
+            <label class="block text-sm mb-2 mt-3">小便量</label>
+            <div class="grid grid-cols-3 gap-2">
               <button data-pl="1X" class="pl py-3 border rounded-xl">正常</button>
               <button data-pl="2X" class="pl py-3 border rounded-xl">多</button>
               <button data-pl="3X" class="pl py-3 border rounded-xl">爆片</button>
             </div>
           </div>
           <div id="poopBox" class="space-y-3 mt-3">
+            <label class="block text-sm">大便</label>
             <div class="flex flex-wrap gap-2" id="colors"></div>
             <div class="flex flex-wrap gap-2" id="texts"></div>
           </div>
@@ -310,9 +312,8 @@
         document.querySelectorAll('.dt').forEach(b=>b.onclick=()=>{
           document.querySelectorAll('.dt').forEach(x=>x.classList.remove('bg-black','text-white'));
           b.classList.add('bg-black','text-white');
-          const isPee = b.dataset.dt==='pee';
-          document.getElementById('peeBox').classList.toggle('hidden', !isPee);
-          document.getElementById('poopBox').classList.toggle('hidden', isPee);
+          const isPeeOnly = b.dataset.dt==='pee';
+          document.getElementById('poopBox').classList.toggle('hidden', isPeeOnly);
           window.dt = b.dataset.dt;
         });
         document.querySelectorAll('.pl').forEach(b=>b.onclick=()=>{document.querySelectorAll('.pl').forEach(x=>x.classList.remove('bg-black','text-white'));b.classList.add('bg-black','text-white');window.pl=b.dataset.pl});
@@ -322,6 +323,7 @@
         document.querySelectorAll('.tb').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tb').forEach(x=>x.classList.remove('bg-black','text-white'));b.classList.add('bg-black','text-white');window.texture=b.textContent});
         window.dt = 'poop';
         window.pl = '1X';
+        document.querySelector('[data-pl="1X"]')?.classList.add('bg-black','text-white');
       }
     }
 
@@ -350,11 +352,13 @@
       } else if (currentForm === 'diaper') {
         const dt = window.dt || 'poop';
         event.type = dt==='pee'?'diaper_pee':dt==='both'?'diaper_both':'diaper_poop';
-        if (dt==='pee') {
-          const pl = window.pl||'1X';
-          event.detail = pl==='1X'?'':(pl==='2X'?'多 (2X)':'爆片 (3X)');
+        const pl = window.pl || '1X';
+        const peeLabel = pl==='1X' ? '' : (pl==='2X' ? '多 (2X)' : '爆片 (3X)');
+        if (dt === 'pee') {
+          event.detail = peeLabel;
         } else {
-          event.detail = [window.color, window.texture].filter(Boolean).join(' · ');
+          const poopDetail = [window.color, window.texture].filter(Boolean).join(' · ');
+          event.detail = [poopDetail, peeLabel].filter(Boolean).join(' · ');
         }
       }
 
