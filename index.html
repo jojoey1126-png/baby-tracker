@@ -35,6 +35,9 @@
         <p id="date" class="text-xs text-gray-500"></p>
       </div>
       <div class="flex gap-2 text-sm">
+        <button id="growthBtn" class="bg-gray-800 text-white px-3 py-1.5 rounded-full">成長</button>
+        <button id="statsBtn" class="bg-gray-800 text-white px-3 py-1.5 rounded-full">統計</button>
+        <button id="remindBtn" class="bg-gray-800 text-white px-3 py-1.5 rounded-full">提醒</button>
         <button id="reportBtn" class="bg-black text-white px-3 py-1.5 rounded-full">報告</button>
         <button id="logoutBtn" class="text-gray-500">登出</button>
       </div>
@@ -123,6 +126,60 @@
         <button id="copyBtn" class="flex-1 bg-black text-white py-3 rounded-2xl">複製</button>
         <button id="exportBtn" class="flex-1 border py-3 rounded-2xl">匯出 Excel</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Growth Modal -->
+  <div id="growthModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-end">
+    <div class="bg-white w-full max-h-[90vh] overflow-auto rounded-t-3xl p-5">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold">成長記錄</h3>
+        <button id="closeGrowth" class="text-xl">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm">日期</label>
+          <input type="date" id="growthDate" class="w-full border rounded-xl px-3 py-3 mt-1">
+        </div>
+        <div>
+          <label class="text-sm">身高 (cm)</label>
+          <input type="number" step="0.1" id="growthHeight" placeholder="例如 65.5" class="w-full border rounded-xl px-3 py-3 mt-1">
+        </div>
+        <div>
+          <label class="text-sm">體重 (kg)</label>
+          <input type="number" step="0.01" id="growthWeight" placeholder="例如 7.25" class="w-full border rounded-xl px-3 py-3 mt-1">
+        </div>
+        <button id="saveGrowth" class="w-full bg-black text-white py-3 rounded-2xl">儲存</button>
+      </div>
+      <div id="growthList" class="mt-4 space-y-2 text-sm"></div>
+      <div id="growthChart" class="mt-4 text-xs text-gray-600"></div>
+    </div>
+  </div>
+
+  <!-- Stats Modal -->
+  <div id="statsModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-end">
+    <div class="bg-white w-full max-h-[90vh] overflow-auto rounded-t-3xl p-5">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold">最近 7 日統計</h3>
+        <button id="closeStats" class="text-xl">✕</button>
+      </div>
+      <div id="statsContent" class="text-sm space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- Reminder Modal -->
+  <div id="remindModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-end">
+    <div class="bg-white w-full max-h-[90vh] overflow-auto rounded-t-3xl p-5">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold">提醒</h3>
+        <button id="closeRemind" class="text-xl">✕</button>
+      </div>
+      <div class="space-y-3">
+        <input id="remindText" placeholder="提醒內容（例如：該食奶）" class="w-full border rounded-xl px-3 py-3">
+        <input type="time" id="remindTime" class="w-full border rounded-xl px-3 py-3">
+        <button id="addRemind" class="w-full bg-black text-white py-3 rounded-2xl">新增提醒</button>
+      </div>
+      <div id="remindList" class="mt-4 space-y-2"></div>
     </div>
   </div>
 
@@ -589,6 +646,88 @@
       await sb.from('events').delete().gte('time', start).lt('time', end);
       loadSelectedDay();
     };
+
+    // Growth, Stats, Reminders
+    const HK_GIRL_WEIGHT = {0:3.2,1:4.2,2:5.1,3:5.8,4:6.4,5:6.9,6:7.3,7:7.6,8:7.9,9:8.2,10:8.5,11:8.7,12:8.9};
+    const HK_GIRL_HEIGHT = {0:49.1,1:53.7,2:57.1,3:59.8,4:62.1,5:64.0,6:65.7,7:67.3,8:68.7,9:70.1,10:71.5,11:72.8,12:74.0};
+
+    async function showGrowth() {
+      document.getElementById('growthModal').classList.remove('hidden');
+      document.getElementById('growthDate').value = new Date().toISOString().slice(0,10);
+      const { data } = await sb.from('events').select('*').eq('type','growth').order('time',{ascending:false});
+      const list = document.getElementById('growthList');
+      list.innerHTML = (data||[]).map(e => `<div class="flex justify-between border-b py-2 text-sm"><span>${new Date(e.time).toLocaleDateString('zh-HK')}</span><span>${e.detail}</span></div>`).join('') || '<p class="text-gray-400 text-sm">未有記錄</p>';
+      if (data && data[0]) {
+        const ageM = Math.round((Date.now() - new Date(data[0].time)) / (1000*60*60*24*30));
+        document.getElementById('growthChart').innerHTML = `香港女嬰約50百分位參考：體重 ${HK_GIRL_WEIGHT[Math.min(ageM,12)]||'--'}kg · 身高 ${HK_GIRL_HEIGHT[Math.min(ageM,12)]||'--'}cm（僅供參考）`;
+      }
+    }
+    async function saveGrowthRec() {
+      const date = document.getElementById('growthDate').value;
+      const h = document.getElementById('growthHeight').value;
+      const w = document.getElementById('growthWeight').value;
+      if (!date || (!h && !w)) return alert('請填日期同數據');
+      await sb.from('events').insert({ type:'growth', time: new Date(date+'T12:00').toISOString(), detail: [h?h+'cm':'', w?w+'kg':''].filter(Boolean).join(' · '), created_by: user?.id });
+      showGrowth();
+    }
+    async function showStats() {
+      document.getElementById('statsModal').classList.remove('hidden');
+      const start = new Date(); start.setDate(start.getDate()-6); start.setHours(0,0,0,0);
+      const { data } = await sb.from('events').select('*').gte('time', start.toISOString());
+      let html = '';
+      for (let i=6; i>=0; i--) {
+        const day = new Date(); day.setDate(day.getDate()-i);
+        const ds = new Date(day.getFullYear(),day.getMonth(),day.getDate());
+        const de = new Date(ds); de.setDate(de.getDate()+1);
+        const ev = (data||[]).filter(e => new Date(e.time)>=ds && new Date(e.time)<de);
+        const f = ev.filter(e=>e.type==='breastfeed'||e.type==='bottle').length;
+        const p = ev.filter(e=>e.type.startsWith('diaper')&&!e.type.includes('poop')).length;
+        const po = ev.filter(e=>e.type==='diaper_poop'||e.type==='diaper_both').length;
+        html += `<div class="border-b pb-2 mb-2"><div class="font-medium">${i===0?'今日':day.toLocaleDateString('zh-HK',{month:'numeric',day:'numeric'})}</div><div class="text-xs">食奶 ${f} · 小便 ${p} · 大便 ${po}</div><div class="flex h-2 mt-1 gap-0.5"><div class="bg-rose-400" style="width:${f*10}px"></div><div class="bg-blue-400" style="width:${p*10}px"></div><div class="bg-amber-700" style="width:${po*10}px"></div></div></div>`;
+      }
+      document.getElementById('statsContent').innerHTML = html || '未有數據';
+    }
+    function loadReminds() {
+      sb.from('events').select('*').eq('type','remind').order('time',{ascending:true}).then(({data}) => {
+        const list = document.getElementById('remindList');
+        if (!data || !data.length) { list.innerHTML = '<p class="text-gray-400 text-sm">未有提醒</p>'; return; }
+        list.innerHTML = data.map(e => `
+          <div class="flex justify-between border-b py-2 text-sm">
+            <div>${e.detail}<div class="text-gray-500 text-xs">${new Date(e.time).toLocaleTimeString('zh-HK',{hour:'2-digit',minute:'2-digit'})}</div></div>
+            <button onclick="delRemind('${e.id}')" class="text-red-400 text-xs">刪</button>
+          </div>
+        `).join('');
+      });
+    }
+    window.delRemind = async (id) => {
+      if (!confirm('刪除提醒？')) return;
+      await sb.from('events').delete().eq('id', id);
+      loadReminds();
+    };
+    function addRemindFn() {
+      const t = document.getElementById('remindText').value.trim();
+      const tm = document.getElementById('remindTime').value;
+      if (!t || !tm) return alert('請填內容同時間');
+      const today = new Date().toISOString().slice(0,10);
+      sb.from('events').insert({
+        type: 'remind',
+        time: new Date(today + 'T' + tm).toISOString(),
+        detail: t,
+        created_by: user?.id
+      }).then(() => {
+        document.getElementById('remindText').value = '';
+        loadReminds();
+      });
+    }
+
+    document.getElementById('growthBtn').onclick = showGrowth;
+    document.getElementById('closeGrowth').onclick = () => document.getElementById('growthModal').classList.add('hidden');
+    document.getElementById('saveGrowth').onclick = saveGrowthRec;
+    document.getElementById('statsBtn').onclick = showStats;
+    document.getElementById('closeStats').onclick = () => document.getElementById('statsModal').classList.add('hidden');
+    document.getElementById('remindBtn').onclick = () => { document.getElementById('remindModal').classList.remove('hidden'); loadReminds(); };
+    document.getElementById('closeRemind').onclick = () => document.getElementById('remindModal').classList.add('hidden');
+    document.getElementById('addRemind').onclick = addRemindFn;
 
     init();
   </script>
